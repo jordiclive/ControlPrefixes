@@ -26,7 +26,7 @@ python transformers/webnlg/finetune_2.py
     --eval_batch_size 3 \
     --gradient_accumulation_steps 16 \
     --check_val_every_n_epoch 1 \
-    --learning_rate 1.5e-05     
+    --learning_rate 5e-05     
 ```
 
 

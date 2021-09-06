@@ -1,0 +1,24 @@
+#dependency check
+safety
+bandit
+
+# for automatic code style
+black
+isort
+autoflake
+
+# linting
+flake8
+
+
+# for testing
+pytest
+pytest-cov
+codecov
+pcoverage
+
+# for documentation
+sphinx
+git+https://github.com/pandas-dev/pandas-sphinx-theme.git@master#egg=pandas-sphinx-theme
+
+

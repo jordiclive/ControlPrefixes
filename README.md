@@ -16,7 +16,7 @@ Jordan Clive(jordan.clive19@imperial.ac.uk). If you have any questions or ideas/
 ## Training & Logging & Checkpointing
 
 ```
-python 
+python transformers/webnlg/finetune_2.py 
     --warmup_steps 2000 \
     --num_train_epochs 30 \
     --num_sanity_val_steps 4 \

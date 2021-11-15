@@ -1,6 +1,5 @@
 [![LICENSE](https://img.shields.io/github/license/jordiclive/Convert-PolyAI-Torch.svg)](https://github.com/jordiclive/Convert-PolyAI-Torch/blob/master/LICENSE)
-[![CircleCI](https://circleci.com/gh/jordiclive/Convert-PolyAI-Torch.svg?style=shield)](https://circleci.com/gh/jordiclive/Convert-PolyAI-Torch)
-![GitHub issues](https://img.shields.io/github/issues/jordiclive/Convert-PolyAI-Torch.svg)
+
 
 
 # Control Prefixes 

@@ -3,7 +3,7 @@
 
 
 # Control Prefixes 
-This is the implementation of Control Prefixes.
+This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https://arxiv.org/abs/2110.08329)
 
 A method based on Prefix-Tuning, which incorporates conditional input-dependent prompts. This method is at the intersection of prompt learning
 and controlled generation.

@@ -12,24 +12,6 @@ This technique extends Prefix-Tuning, by having multiple control prefixes that e
 Jordan Clive(jordan.clive19@imperial.ac.uk). If you have any questions or ideas/improvements please contact me.
 
 
-## Training & Logging & Checkpointing
-
-```
-python transformers/webnlg/finetune_2.py 
-    --warmup_steps 2000 \
-    --num_train_epochs 30 \
-    --num_sanity_val_steps 4 \
-    --m_prefix_len 2 \
-    --preseqlen 48 \
-    --train_batch_size 6 \
-    --eval_batch_size 3 \
-    --gradient_accumulation_steps 16 \
-    --check_val_every_n_epoch 1 \
-    --learning_rate 5e-05     
-```
-
-
-
 
 ## License
 
@@ -38,6 +20,26 @@ Apache License
 ## Citations
 
 - [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/abs/2101.00190)
+
+```bibtext
+@article{DBLP:journals/corr/abs-2110-08329,
+  author    = {Jordan Clive and
+               Kris Cao and
+               Marek Rei},
+  title     = {Control Prefixes for Text Generation},
+  journal   = {CoRR},
+  volume    = {abs/2110.08329},
+  year      = {2021},
+  url       = {https://arxiv.org/abs/2110.08329},
+  eprinttype = {arXiv},
+  eprint    = {2110.08329},
+  timestamp = {Fri, 22 Oct 2021 13:33:09 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-2110-08329.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+```
+
 
 ```bibtext
 @article{DBLP:journals/corr/abs-2101-00190,

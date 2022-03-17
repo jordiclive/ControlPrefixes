@@ -5,8 +5,8 @@
 # Control Prefixes 
 This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https://arxiv.org/abs/2110.08329)
 
-A method based on Prefix-Tuning, which incorporates conditional input-dependent prompts. This method is at the intersection of prompt learning
-and controlled generation.
+This technique extends Prefix-Tuning, by having multiple control prefixes that exert control at the input level. This technqiue achieves state-of-the-art results.
+
 ## Developed By
 
 Jordan Clive(jordan.clive19@imperial.ac.uk). If you have any questions or ideas/improvements please contact me.

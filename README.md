@@ -1,5 +1,5 @@
-[![LICENSE](https://img.shields.io/github/license/jordiclive/cleancontrolprefixes.svg)](https://github.com/jordiclive/cleancontrolprefixes/blob/master/LICENSE)
-![GitHub issues](https://img.shields.io/github/issues/jordiclive/cleancontrolprefixes.svg)
+[![LICENSE](https://img.shields.io/github/license/jordiclive/ControlPrefixes.svg)](https://github.com/jordiclive/ControlPrefixes/blob/master/LICENSE)
+![GitHub issues](https://img.shields.io/github/issues/jordiclive/ControlPrefixes.svg)
 
 # Control Prefixes for Parameter-efficient Text Generation! 🚅 
 This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https://arxiv.org/abs/2110.08329)

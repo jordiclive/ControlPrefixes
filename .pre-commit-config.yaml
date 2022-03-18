@@ -1,0 +1,22 @@
+repos:
+-   repo: https://github.com/psf/black
+    rev: 21.10b0
+    hooks:
+    -   id: black
+#-   repo: https://github.com/pycqa/isort
+#    rev: 5.10.0
+#    hooks:
+#        - id: isort
+#          args: ["--profile", "black", "--filter-files","--line-length", "120"]
+#-   repo: https://github.com/asottile/seed-isort-config
+#    rev: v2.2.0
+#    hooks:
+#    -   id: seed-isort-config
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+    -   id: check-yaml
+    -   id: check-toml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+    -   id: check-added-large-files

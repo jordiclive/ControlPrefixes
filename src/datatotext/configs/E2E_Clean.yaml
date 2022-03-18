@@ -1,0 +1,38 @@
+warmup_steps: 2000
+num_train_epochs: 50
+num_sanity_val_steps: 4
+m_prefix_len: 2
+preseqlen: 50
+train_batch_size: 6
+eval_batch_size: 4
+gradient_accumulation_steps: 16
+check_val_every_n_epoch: 1
+
+learning_rate: 7e-05
+eval_min_length: 0
+gpus: 1
+eval_beams: 5
+precision: 32
+val_metric: "bleu"
+max_source_length: 384
+max_target_length: 384
+val_max_target_length: 384
+test_max_target_length: 384
+eval_max_gen_length: 384
+n_val: -1
+different_scheduler: True
+new_tokens: True
+control_prefixes: True
+T5_preamble: True
+model_name_or_path: "t5-large"
+restart_with_embed: True
+DART: True
+#cache_dir: ""
+output_dir: "../output_dir/"
+data_dir: "../data/E2E_Clean"
+
+#logger_name: "wandb"
+#wb_project: "
+#wb_name:
+#resume_from_checkpoint:
+#wb_entity: ""

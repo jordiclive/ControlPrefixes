@@ -1,0 +1,29 @@
+warmup_steps: 10000
+num_train_epochs: 30
+num_sanity_val_steps: 4
+preseqlen: 48
+train_batch_size: 4
+eval_batch_size: 4
+gradient_accumulation_steps: 16
+check_val_every_n_epoch: 1
+length_penalty: 1
+precision: 16
+val_metric: "rouge2"
+control_prefixes: True
+m_prefix_len: 2
+
+learning_rate: 5e-05
+gpus: 1
+
+n_val: -1
+
+
+cache_dir: "~/SageMaker/jordan/cleancontrolprefixes/src/cache_dir"
+output_dir: "~/SageMaker/jordan/cleancontrolprefixes/src/output_dir/"
+data_dir: "~/SageMaker/jordan/cleancontrolprefixes/src/data/xsum/"
+
+
+#logger_name: "wandb"
+#wb_project: "
+#wb_name:
+#resume_from_checkpoint:

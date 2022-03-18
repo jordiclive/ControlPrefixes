@@ -1,0 +1,723 @@
+import itertools
+import json
+import linecache
+import math
+import pickle
+from logging import getLogger
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Tuple, Union
+
+import numpy as np
+import torch
+import torch.distributed as dist
+from sacrebleu import corpus_bleu
+from torch import nn
+from torch.utils.data import Dataset, Sampler
+from transformers import BartTokenizer
+from transformers.file_utils import cached_property
+
+try:
+    from fairseq.data.data_utils import batch_by_size
+
+    FAIRSEQ_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    FAIRSEQ_AVAILABLE = False
+
+
+def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=-100):
+    """From fairseq"""
+    if target.dim() == lprobs.dim() - 1:
+        target = target.unsqueeze(-1)
+    nll_loss = -lprobs.gather(dim=-1, index=target)
+    smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
+    if ignore_index is not None:
+        pad_mask = target.eq(ignore_index)
+        nll_loss.masked_fill_(pad_mask, 0.0)
+        smooth_loss.masked_fill_(pad_mask, 0.0)
+    else:
+        nll_loss = nll_loss.squeeze(-1)
+        smooth_loss = smooth_loss.squeeze(-1)
+
+    nll_loss = nll_loss.sum()  # mean()? Scared to break other math.
+    smooth_loss = smooth_loss.sum()
+    eps_i = epsilon / lprobs.size(-1)
+    loss = (1.0 - epsilon) * nll_loss + eps_i * smooth_loss
+    return loss, nll_loss
+
+
+def lmap(f: Callable, x: Iterable) -> List:
+    """list(map(f, x))"""
+    return list(map(f, x))
+
+
+def calculate_bleu(output_lns, refs_lns) -> dict:
+    """Uses sacrebleu's corpus_bleu implementation."""
+    return {"sacrebleu": round(corpus_bleu(output_lns, [refs_lns]).score, 4)}
+
+
+class AbstractSeq2SeqDataset(Dataset):
+    def __init__(
+        self,
+        tokenizer,
+        data_dir,
+        max_source_length,
+        max_target_length,
+        type_path="train",
+        n_obs=None,
+        prefix="",
+        **dataset_kwargs,
+    ):
+        super().__init__()
+        self.src_file = Path(data_dir).joinpath(type_path + ".source")
+        self.tgt_file = Path(data_dir).joinpath(type_path + ".target")
+        self.len_file = Path(data_dir).joinpath(type_path + ".len")
+        self.cat_file = list(
+            np.load(Path(data_dir).joinpath(type_path + ".source_cat.npy"))
+        )
+        self.source_file = list(
+            np.load(Path(data_dir).joinpath(type_path + ".source.npy"))
+        )
+        if os.path.exists(self.len_file):
+            self.src_lens = pickle_load(self.len_file)
+            self.used_char_len = False
+        else:
+            self.src_lens = self.get_char_lens(self.src_file)
+            self.used_char_len = True
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        assert min(self.src_lens) > 0, f"found empty line in {self.src_file}"
+        self.tokenizer = tokenizer
+        self.prefix = prefix if prefix is not None else ""
+
+        if n_obs is not None:
+            self.src_lens = self.src_lens[:n_obs]
+        self.pad_token_id = self.tokenizer.pad_token_id
+        self.dataset_kwargs = dataset_kwargs
+        dataset_kwargs.update(
+            {"add_prefix_space": True}
+            if isinstance(self.tokenizer, BartTokenizer)
+            else {}
+        )
+
+    def __len__(self):
+        return len(self.src_lens)
+
+    @staticmethod
+    def get_char_lens(data_file):
+        return [len(x) for x in Path(data_file).open().readlines()]
+
+    @cached_property
+    def tgt_lens(self):
+        """Length in characters of target documents"""
+        return self.get_char_lens(self.tgt_file)
+
+    def make_sortish_sampler(
+        self, batch_size, distributed=False, shuffle=True, **kwargs
+    ):
+        if distributed:
+            return DistributedSortishSampler(
+                self, batch_size, shuffle=shuffle, **kwargs
+            )
+        else:
+            return SortishSampler(self.src_lens, batch_size, shuffle=shuffle)
+
+    def make_dynamic_sampler(self, max_tokens_per_batch=1024, **kwargs):
+        assert FAIRSEQ_AVAILABLE, "Dynamic batch size requires `pip install fairseq`"
+        assert (
+            not self.used_char_len
+        ), "You must call  python make_len_file.py before calling make_dynamic_sampler"
+        sorted_indices = list(self.make_sortish_sampler(1024, shuffle=False))
+
+        def num_tokens_in_example(i):
+            return min(self.src_lens[i], self.max_target_length)
+
+        # call fairseq cython function
+        batch_sampler: List[List[int]] = batch_by_size(
+            sorted_indices,
+            num_tokens_fn=num_tokens_in_example,
+            max_tokens=max_tokens_per_batch,
+            required_batch_size_multiple=64,
+        )
+        shuffled_batches = [
+            batch_sampler[i] for i in np.random.permutation(range(len(batch_sampler)))
+        ]
+        # move the largest batch to the front to OOM quickly (uses an approximation for padding)
+        approximate_toks_per_batch = [
+            max(self.src_lens[i] for i in batch) * len(batch)
+            for batch in shuffled_batches
+        ]
+        largest_batch_idx = np.argmax(approximate_toks_per_batch)
+        shuffled_batches[0], shuffled_batches[largest_batch_idx] = (
+            shuffled_batches[largest_batch_idx],
+            shuffled_batches[0],
+        )
+        return shuffled_batches
+
+    def __getitem__(self, item):
+        raise NotImplementedError("You must implement this")
+
+    def collate_fn(self, batch):
+        raise NotImplementedError("You must implement this")
+
+
+class Seq2SeqDataset(AbstractSeq2SeqDataset):
+    """A dataset that calls prepare_seq2seq_batch."""
+
+    def __getitem__(self, index) -> Dict[str, str]:
+
+        index = index + 1
+        source_line = self.prefix + linecache.getline(str(self.src_file), index).rstrip(
+            "\n"
+        )
+        tgt_line = linecache.getline(str(self.tgt_file), index).rstrip("\n")
+        assert source_line, f"empty source line for index {index}"
+        assert tgt_line, f"empty tgt line for index {index}"
+        return {
+            "tgt_texts": tgt_line,
+            "src_texts": source_line,
+            "id": index - 1,
+            "category": self.cat_file[index - 1],
+            "source": self.source_file[index - 1],
+        }
+
+    def collate_fn(self, batch):
+        """Call prepare_seq2seq_batch."""
+        batch_encoding: Dict[str, torch.Tensor] = self.tokenizer.prepare_seq2seq_batch(
+            [x["src_texts"] for x in batch],
+            tgt_texts=[x["tgt_texts"] for x in batch],
+            max_length=self.max_source_length,
+            max_target_length=self.max_target_length,
+            return_tensors="pt",
+            **self.dataset_kwargs,
+        ).data
+        # lens = (batch_encoding['attention_mask'] == 1.).sum(dim=1).tolist()
+
+        batch_encoding["ids"] = torch.tensor([x["id"] for x in batch])
+        batch_encoding["cats"] = torch.tensor([x["category"] for x in batch])
+        batch_encoding["sources"] = torch.tensor([x["source"] for x in batch])
+
+        return batch_encoding
+
+
+class SortishSampler(Sampler):
+    "Go through the text data by order of src length with a bit of randomness. From fastai repo."
+
+    def __init__(self, data, batch_size, shuffle=True):
+        self.data, self.bs, self.shuffle = data, batch_size, shuffle
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __iter__(self):
+        return iter(sortish_sampler_indices(self.data, self.bs, shuffle=self.shuffle))
+
+
+def sortish_sampler_indices(data: List, bs: int, shuffle=True) -> np.array:
+    "Go through the text data by order of src length with a bit of randomness. From fastai repo."
+    if not shuffle:
+        return np.argsort(np.array(data) * -1)
+
+    def key_fn(i):
+        return data[i]
+
+    idxs = np.random.permutation(len(data))
+    sz = bs * 50
+    ck_idx = [idxs[i : i + sz] for i in range(0, len(idxs), sz)]
+    sort_idx = np.concatenate([sorted(s, key=key_fn, reverse=True) for s in ck_idx])
+    sz = bs
+    ck_idx = [sort_idx[i : i + sz] for i in range(0, len(sort_idx), sz)]
+    max_ck = np.argmax(
+        [key_fn(ck[0]) for ck in ck_idx]
+    )  # find the chunk with the largest key,
+    ck_idx[0], ck_idx[max_ck] = (
+        ck_idx[max_ck],
+        ck_idx[0],
+    )  # then make sure it goes first.
+    sort_idx = (
+        np.concatenate(np.random.permutation(ck_idx[1:]))
+        if len(ck_idx) > 1
+        else np.array([], dtype=np.int)
+    )
+    sort_idx = np.concatenate((ck_idx[0], sort_idx))
+    return sort_idx
+
+
+class DistributedSortishSampler(Sampler):
+    """Copied from torch DistributedSampler"""
+
+    def __init__(
+        self,
+        dataset,
+        batch_size,
+        num_replicas=None,
+        rank=None,
+        add_extra_examples=True,
+        shuffle=True,
+    ):
+        if num_replicas is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            num_replicas = dist.get_world_size()
+        if rank is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            rank = dist.get_rank()
+        self.dataset = dataset
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+        if add_extra_examples:
+            self.num_samples = int(
+                math.ceil(len(self.dataset) * 1.0 / self.num_replicas)
+            )
+            self.total_size = self.num_samples * self.num_replicas
+        else:
+            self.total_size = len(dataset)
+            self.num_samples = len(self.available_indices)
+        self.batch_size = batch_size
+        self.add_extra_examples = add_extra_examples
+        self.shuffle = shuffle
+
+    def __iter__(self) -> Iterable:
+        g = torch.Generator()
+        g.manual_seed(self.epoch)
+
+        sortish_data = [self.dataset.src_lens[i] for i in self.available_indices]
+        sortish_indices = sortish_sampler_indices(
+            sortish_data, self.batch_size, shuffle=self.shuffle
+        )
+        indices = [self.available_indices[i] for i in sortish_indices]
+        assert len(indices) == self.num_samples
+        return iter(indices)
+
+    @cached_property
+    def available_indices(self) -> np.array:
+        indices = list(range(len(self.dataset)))
+        # add extra samples to make it evenly divisible
+        indices += indices[: (self.total_size - len(indices))]
+        assert len(indices) == self.total_size
+        # subsample
+        available_indices = indices[self.rank : self.total_size : self.num_replicas]
+        return available_indices
+
+    def __len__(self):
+        return self.num_samples
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+
+logger = getLogger(__name__)
+
+
+def use_task_specific_params(model, task):
+    """Update config with GEC specific params."""
+    task_specific_params = model.config.task_specific_params
+
+    if task_specific_params is not None:
+        pars = task_specific_params.get(task, {})
+        logger.info(f"using task specific params for {task}: {pars}")
+        model.config.update(pars)
+
+
+def pickle_load(path):
+    """pickle.load(path)"""
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+
+def pickle_save(obj, path):
+    """pickle.dump(obj, path)"""
+    with open(path, "wb") as f:
+        return pickle.dump(obj, f)
+
+
+def flatten_list(summary_ids: List[List]):
+    return [x for x in itertools.chain.from_iterable(summary_ids)]
+
+
+# Utilities for freezing parameters and checking whether they are frozen
+
+
+def freeze_params(model: nn.Module):
+    """Set requires_grad=False for each of model.parameters()"""
+    for par in model.parameters():
+        par.requires_grad = False
+
+
+def freeze_embeds(model):
+    """Freeze token embeddings and positional embeddings for bart, just token embeddings for t5."""
+    model_type = model.config.model_type
+
+    if model_type == "t5":
+        freeze_params(model.shared)
+        for d in [model.encoder, model.decoder]:
+            freeze_params(d.embed_tokens)
+    elif model_type == "fsmt":
+        for d in [model.model.encoder, model.model.decoder]:
+            freeze_params(d.embed_positions)
+            freeze_params(d.embed_tokens)
+    else:
+        freeze_params(model.model.shared)
+        for d in [model.model.encoder, model.model.decoder]:
+            freeze_params(d.embed_positions)
+            freeze_params(d.embed_tokens)
+
+
+def assert_all_frozen(model):
+    model_grads: List[bool] = list(grad_status(model))
+    n_require_grad = sum(lmap(int, model_grads))
+    npars = len(model_grads)
+    assert not any(
+        model_grads
+    ), f"{n_require_grad/npars:.1%} of {npars} weights require grad"
+
+
+def grad_status(model: nn.Module) -> Iterable:
+    return (par.requires_grad for par in model.parameters())
+
+
+import os
+import re
+
+
+def convert_text(text):
+    # return text
+    text = text.lower()
+    text = " ".join(re.split("(\W)", text))
+    text = " ".join(text.split())
+    return text
+
+
+def eval_meteor_test_webnlg(folder_data, pred_file, dataset):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    folder_data_before = dir_path + "/utils"
+
+    cmd_string = (
+        "java -jar "
+        + folder_data_before
+        + "/meteor-1.5.jar "
+        + pred_file
+        + " "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target_eval_meteor -l en -norm -r 3 > "
+        + pred_file.replace("txt", "meteor")
+    )
+    print(cmd_string)
+    os.system(cmd_string)
+
+    meteor_info = open(pred_file.replace("txt", "meteor"), "r").readlines()[-1].strip()
+
+    return meteor_info
+
+
+def eval_chrf_test_webnlg(folder_data, pred_file, dataset):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    folder_data_before = dir_path + "/utils"
+
+    cmd_string = (
+        "python "
+        + folder_data_before
+        + "/chrf++.py -H "
+        + pred_file
+        + " -R "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target_eval_crf > "
+        + pred_file.replace("txt", "chrf")
+    )
+
+    os.system(cmd_string)
+
+    chrf_info_1 = open(pred_file.replace("txt", "chrf"), "r").readlines()[1].strip()
+    chrf_info_2 = open(pred_file.replace("txt", "chrf"), "r").readlines()[2].strip()
+
+    return chrf_info_1 + " " + chrf_info_2
+
+
+def eval_bleu(folder_data, pred_file, dataset):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    cmd_string = (
+        "perl "
+        + dir_path
+        + "/multi-bleu.perl -lc "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target_eval "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target2_eval "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target3_eval < "
+        + pred_file
+        + " > "
+        + pred_file.replace("txt", "bleu")
+    )
+    print(cmd_string)
+    os.system(cmd_string)
+
+    try:
+        bleu_info = open(pred_file.replace("txt", "bleu"), "r").readlines()[0].strip()
+    except:
+        bleu_info = -1
+
+    return bleu_info
+
+
+def eval_bleu_sents_tok(pred_file, folder_data, dataset):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    folder_data_before = dir_path + "/utils"
+
+    cmd_string = (
+        "perl "
+        + folder_data_before
+        + "/tokenizer.perl -threads 4 -no-escape < "
+        + pred_file
+        + " > "
+        + pred_file
+        + "_tok"
+    )
+    os.system(cmd_string)
+
+    cmd_string = (
+        "perl "
+        + folder_data_before
+        + "/multi-bleu.perl -lc "
+        + folder_data
+        + "/"
+        + dataset
+        + ".target.tok"
+        + " < "
+        + pred_file
+        + "_tok"
+        + " > "
+        + pred_file.replace("txt", "bleu_data")
+    )
+    os.system(cmd_string)
+
+    try:
+        bleu_info_data = (
+            open(pred_file.replace("txt", "bleu_data"), "r").readlines()[0].strip()
+        )
+    except:
+        bleu_info_data = "no data"
+
+    return bleu_info_data
+
+
+def eval_meteor(ref_file, pred_file):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    folder_data_before = dir_path + "/utils"
+
+    cmd_string = (
+        "java -jar "
+        + folder_data_before
+        + "/meteor-1.5.jar "
+        + pred_file
+        + " "
+        + ref_file
+        + " > "
+        + pred_file.replace("txt", "meteor")
+    )
+
+    os.system(cmd_string)
+
+    meteor_info = open(pred_file.replace("txt", "meteor"), "r").readlines()[-1].strip()
+
+    return meteor_info
+
+
+def eval_chrf(ref_file, pred_file):
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    folder_data_before = dir_path + "/utils"
+
+    cmd_string = (
+        "python "
+        + folder_data_before
+        + "/chrf++.py -H "
+        + pred_file
+        + " -R "
+        + ref_file
+        + " > "
+        + pred_file.replace("txt", "chrf")
+    )
+
+    os.system(cmd_string)
+
+    try:
+        chrf_info_1 = open(pred_file.replace("txt", "chrf"), "r").readlines()[1].strip()
+        chrf_info_2 = open(pred_file.replace("txt", "chrf"), "r").readlines()[2].strip()
+        chrf_data = chrf_info_1 + " " + chrf_info_2
+    except:
+        chrf_data = "no data"
+
+    return chrf_data
+
+
+def save_json(content, path, indent=4, **json_dump_kwargs):
+    with open(path, "w") as f:
+        json.dump(content, f, indent=indent, **json_dump_kwargs)
+
+
+def freeze_prefix(model):
+    params = [
+        p
+        for n, p in model.named_parameters()
+        if not any(nd in n for nd in ["CEFR_matrices"])
+    ]
+    for par in params:
+        par.requires_grad = False
+
+
+class AbstractSeq2SeqDatasetSingle(Dataset):
+    def __init__(
+        self,
+        tokenizer,
+        data_dir,
+        max_source_length,
+        max_target_length,
+        type_path="train",
+        n_obs=None,
+        prefix="",
+        **dataset_kwargs,
+    ):
+        super().__init__()
+        self.src_file = Path(data_dir).joinpath(type_path + ".source")
+        self.tgt_file = Path(data_dir).joinpath(type_path + ".target")
+        self.len_file = Path(data_dir).joinpath(type_path + ".len")
+
+        self.source_file = list(
+            np.load(Path(data_dir).joinpath(type_path + ".source.npy"))
+        )
+        if os.path.exists(self.len_file):
+            self.src_lens = pickle_load(self.len_file)
+            self.used_char_len = False
+        else:
+            self.src_lens = self.get_char_lens(self.src_file)
+            self.used_char_len = True
+        self.max_source_length = max_source_length
+        self.max_target_length = max_target_length
+        assert min(self.src_lens) > 0, f"found empty line in {self.src_file}"
+        self.tokenizer = tokenizer
+        self.prefix = prefix if prefix is not None else ""
+
+        if n_obs is not None:
+            self.src_lens = self.src_lens[:n_obs]
+        self.pad_token_id = self.tokenizer.pad_token_id
+        self.dataset_kwargs = dataset_kwargs
+        dataset_kwargs.update(
+            {"add_prefix_space": True}
+            if isinstance(self.tokenizer, BartTokenizer)
+            else {}
+        )
+
+    def __len__(self):
+        return len(self.src_lens)
+
+    @staticmethod
+    def get_char_lens(data_file):
+        return [len(x) for x in Path(data_file).open().readlines()]
+
+    @cached_property
+    def tgt_lens(self):
+        """Length in characters of target documents"""
+        return self.get_char_lens(self.tgt_file)
+
+    def make_sortish_sampler(
+        self, batch_size, distributed=False, shuffle=True, **kwargs
+    ):
+        if distributed:
+            return DistributedSortishSampler(
+                self, batch_size, shuffle=shuffle, **kwargs
+            )
+        else:
+            return SortishSampler(self.src_lens, batch_size, shuffle=shuffle)
+
+    def make_dynamic_sampler(self, max_tokens_per_batch=1024, **kwargs):
+        assert FAIRSEQ_AVAILABLE, "Dynamic batch size requires `pip install fairseq`"
+        assert (
+            not self.used_char_len
+        ), "You must call  python make_len_file.py before calling make_dynamic_sampler"
+        sorted_indices = list(self.make_sortish_sampler(1024, shuffle=False))
+
+        def num_tokens_in_example(i):
+            return min(self.src_lens[i], self.max_target_length)
+
+        # call fairseq cython function
+        batch_sampler: List[List[int]] = batch_by_size(
+            sorted_indices,
+            num_tokens_fn=num_tokens_in_example,
+            max_tokens=max_tokens_per_batch,
+            required_batch_size_multiple=64,
+        )
+        shuffled_batches = [
+            batch_sampler[i] for i in np.random.permutation(range(len(batch_sampler)))
+        ]
+        # move the largest batch to the front to OOM quickly (uses an approximation for padding)
+        approximate_toks_per_batch = [
+            max(self.src_lens[i] for i in batch) * len(batch)
+            for batch in shuffled_batches
+        ]
+        largest_batch_idx = np.argmax(approximate_toks_per_batch)
+        shuffled_batches[0], shuffled_batches[largest_batch_idx] = (
+            shuffled_batches[largest_batch_idx],
+            shuffled_batches[0],
+        )
+        return shuffled_batches
+
+    def __getitem__(self, item):
+        raise NotImplementedError("You must implement this")
+
+    def collate_fn(self, batch):
+        raise NotImplementedError("You must implement this")
+
+
+class Seq2SeqDatasetSingle(AbstractSeq2SeqDatasetSingle):
+    """A dataset that calls prepare_seq2seq_batch."""
+
+    def __getitem__(self, index) -> Dict[str, str]:
+
+        index = index + 1
+        source_line = self.prefix + linecache.getline(str(self.src_file), index).rstrip(
+            "\n"
+        )
+        tgt_line = linecache.getline(str(self.tgt_file), index).rstrip("\n")
+        assert source_line, f"empty source line for index {index}"
+        assert tgt_line, f"empty tgt line for index {index}"
+        return {
+            "tgt_texts": tgt_line,
+            "src_texts": source_line,
+            "id": index - 1,
+            "source": self.source_file[index - 1],
+        }
+
+    def collate_fn(self, batch):
+        """Call prepare_seq2seq_batch."""
+        batch_encoding: Dict[str, torch.Tensor] = self.tokenizer.prepare_seq2seq_batch(
+            [x["src_texts"] for x in batch],
+            tgt_texts=[x["tgt_texts"] for x in batch],
+            max_length=self.max_source_length,
+            max_target_length=self.max_target_length,
+            return_tensors="pt",
+            **self.dataset_kwargs,
+        ).data
+        # lens = (batch_encoding['attention_mask'] == 1.).sum(dim=1).tolist()
+
+        batch_encoding["ids"] = torch.tensor([x["id"] for x in batch])
+        batch_encoding["sources"] = torch.tensor([x["source"] for x in batch])
+
+        return batch_encoding

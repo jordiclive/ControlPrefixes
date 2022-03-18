@@ -1,0 +1,17 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run:
+          command: |
+            sudo pip install pipenv
+            pipenv install autoflake
+            pipenv install isort
+            pipenv install black
+            pipenv run autoflake --remove-all-unused-imports -i -r src || FAILURE=true
+            pipenv run isort -rc src || FAILURE=true
+
+            pipenv run black src --line-length 100  || FAILURE=true

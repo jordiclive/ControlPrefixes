@@ -1,4 +1,4 @@
-[![LICENSE](https://img.shields.io/github/license/jordiclive/ControlPrefixes.svg)](https://github.com/jordiclive/ControlPrefixes/blob/master/LICENSE)
+[![LICENSE](https://)](https:)
 ![GitHub issues](https://img.shields.io/github/issues/jordiclive/ControlPrefixes.svg)
 
 # Control Prefixes for Parameter-efficient Text Generation! 🚅 
@@ -14,13 +14,13 @@ As a result the technique is state-of-the-art on several datasets:
 
 Data-to-Text:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg-full-1)](https://paperswithcode.com/sota/data-to-text-generation-on-webnlg-full-1?p=control-prefixes-for-text-generation)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg-full-1)](https:)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-cleaned-e2e-nlg-1)](https://paperswithcode.com/sota/data-to-text-generation-on-cleaned-e2e-nlg-1?p=control-prefixes-for-text-generation)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-cleaned-e2e-nlg-1)](https:)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-generation-on-dart)](https://paperswithcode.com/sota/text-generation-on-dart?p=control-prefixes-for-text-generation)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-generation-on-dart)](https:)
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg)](https://paperswithcode.com/sota/data-to-text-generation-on-webnlg?p=control-prefixes-for-text-generation)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg)](https:)
 
 Abstractive Text Summarization:
 

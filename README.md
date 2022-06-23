@@ -20,9 +20,6 @@ Data-to-Text:
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg)](https://google.com)
 
-Abstractive Text Summarization:
-
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-summarization-on-x-sum)](https://google.com)
 
 Text Simplification:
 

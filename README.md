@@ -1,8 +1,6 @@
-[![LICENSE](https://)](https:)
-![GitHub issues](https://img.shields.io/github/issues/jordiclive/ControlPrefixes.svg)
 
 # Control Prefixes for Parameter-efficient Text Generation! 🚅 
-This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https:)
+This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https://google.com)
 
 This technique extends Prefix-Tuning, a parameter-efficient technique that tunes prompts at every layers of the transformer and keeps the base LM fixed. Control Prefixes was the first paper to prefix-tune T5 and therefore show how powerful this architecture can be for Structure knowledge graph tasks such as Data-to-Text.
 
@@ -14,27 +12,27 @@ As a result the technique is state-of-the-art on several datasets:
 
 Data-to-Text:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg-full-1)](https:)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg-full-1)]([https:](https://google.com))
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-cleaned-e2e-nlg-1)](https:)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-cleaned-e2e-nlg-1)]([https:](https://google.com))
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-generation-on-dart)](https:)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-generation-on-dart)]([https:](https://google.com))
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/data-to-text-generation-on-webnlg)](https://google.com)
 
 Abstractive Text Summarization:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-summarization-on-x-sum)](https:)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-summarization-on-x-sum)](https://google.com)
 
 Text Simplification:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-simplification-on-asset)](https:)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-simplification-on-asset)](https://google.com)
 
 
 
 ## Developed By
 
-Jordan Clive(jordan.clive19@imperial.ac.uk). If you have any questions or ideas/improvements please contact me.
+If you have any questions or ideas/improvements please contact me.
 
 
 

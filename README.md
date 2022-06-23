@@ -2,7 +2,7 @@
 ![GitHub issues](https://img.shields.io/github/issues/jordiclive/ControlPrefixes.svg)
 
 # Control Prefixes for Parameter-efficient Text Generation! 🚅 
-This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https://arxiv.org/abs/2110.08329)
+This is the implementation of [Control Prefixes for Parameter-efficient Text Generation](https:)
 
 This technique extends Prefix-Tuning, a parameter-efficient technique that tunes prompts at every layers of the transformer and keeps the base LM fixed. Control Prefixes was the first paper to prefix-tune T5 and therefore show how powerful this architecture can be for Structure knowledge graph tasks such as Data-to-Text.
 
@@ -24,11 +24,11 @@ Data-to-Text:
 
 Abstractive Text Summarization:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-summarization-on-x-sum)](https://paperswithcode.com/sota/text-summarization-on-x-sum?p=text-summarization-on-x-sum)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-summarization-on-x-sum)](https:)
 
 Text Simplification:
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-simplification-on-asset)](https://paperswithcode.com/sota/text-simplification-on-asset?p=text-simplification-on-asset)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/control-prefixes-for-text-generation/text-simplification-on-asset)](https:)
 
 
 
@@ -42,7 +42,6 @@ Installation
 ------------
 
 ```
-git clone https://github.com/jordiclive/ControlPrefixes.git
 cd ControlPrefixes
 bash setup.sh
 unzip src/data.zip
@@ -65,48 +64,6 @@ $ python read_yaml.py configs/webnlg17_config.yaml
 
 Apache License
 
-## Citations
-------------
-
-- [Control Prefixes for Parameter-efficient Text Generation](https://arxiv.org/abs/2110.08329)
-
-```bibtext
-@article{DBLP:journals/corr/abs-2110-08329,
-  author    = {Jordan Clive and
-               Kris Cao and
-               Marek Rei},
-  title     = {Control Prefixes for Text Generation},
-  journal   = {CoRR},
-  volume    = {abs/2110.08329},
-  year      = {2021},
-  url       = {https://arxiv.org/abs/2110.08329},
-  eprinttype = {arXiv},
-  eprint    = {2110.08329},
-  timestamp = {Fri, 22 Oct 2021 13:33:09 +0200},
-  biburl    = {https://dblp.org/rec/journals/corr/abs-2110-08329.bib},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
-}
-
-```
-
-- [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/abs/2101.00190)
-
-```bibtext
-@article{DBLP:journals/corr/abs-2101-00190,
-  author    = {Xiang Lisa Li and
-               Percy Liang},
-  title     = {Prefix-Tuning: Optimizing Continuous Prompts for Generation},
-  journal   = {CoRR},
-  volume    = {abs/2101.00190},
-  year      = {2021},
-  url       = {https://arxiv.org/abs/2101.00190},
-  archivePrefix = {arXiv},
-  eprint    = {2101.00190},
-  timestamp = {Thu, 21 Jan 2021 14:42:30 +0100},
-  biburl    = {https://dblp.org/rec/journals/corr/abs-2101-00190.bib},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
-}
-```
 
 
 

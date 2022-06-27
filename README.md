@@ -44,7 +44,7 @@ Installation
 ```
 git clone https://github.com/jordiclive/ControlPrefixes.git
 cd ControlPrefixes
-bash setup.sh
+pip install .
 unzip src/data.zip
 unzip src/datatotext/utils.zip
 ```

@@ -26,7 +26,7 @@ class CustomInstall(install):
 setup(
     name="ControlPrefixes",
     version="0.1.0",
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     description="Code for Control Prefixes for Parameter-Efficient Text Generation",
     long_description=long_description,
     long_description_content_type="text/markdown",

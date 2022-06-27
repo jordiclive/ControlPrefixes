@@ -28,7 +28,7 @@ model_name_or_path: "t5-large"
 restart_with_embed: True
 #cache_dir: ""
 output_dir: "../output_dir/"
-data_dir: "../data/webnlg17"
+data_dir: "../../data/webnlg17"
 #logger_name: "wandb"
 #wb_project: "
 #wb_name:

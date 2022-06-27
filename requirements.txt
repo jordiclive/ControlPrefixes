@@ -3,6 +3,7 @@ configargparse
 dataclasses
 datasets==1.1.2
 h5py==2.10.0
+fire
 ipython==7.16.1
 ipykernel==5.3.4
 pandas==1.1.3

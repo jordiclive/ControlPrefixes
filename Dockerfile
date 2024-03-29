@@ -24,8 +24,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Upgrade pip for Python 3.7 specifically
 RUN python3.7 -m pip install --no-cache-dir --upgrade pip
-
 RUN ln -s /usr/bin/python3.7 /usr/bin/python
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+
 
 # Copy the entire project and install dependencies
 # Note: Consider using .dockerignore to exclude files not needed for the build

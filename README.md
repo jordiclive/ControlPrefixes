@@ -48,6 +48,13 @@ pip install .
 unzip src/data.zip
 unzip src/datatotext/utils.zip
 ```
+
+Docker 
+------
+```
+docker run --gpus '"all"' --rm -it jordiclive/controlprefixes:main-latest
+```
+
 Usage
 -----
 

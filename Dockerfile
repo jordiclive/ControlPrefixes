@@ -28,8 +28,6 @@ RUN ln -s /usr/bin/python3.7 /usr/bin/python
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
 
 
-# Copy the entire project and install dependencies
-# Note: Consider using .dockerignore to exclude files not needed for the build
 COPY requirements.txt /app/
 COPY . /app
 RUN pip3 install -e .

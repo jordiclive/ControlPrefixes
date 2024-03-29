@@ -25,11 +25,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Upgrade pip for Python 3.7 specifically
 RUN python3.7 -m pip install --no-cache-dir --upgrade pip
 
+RUN ln -s /usr/bin/python3.7 /usr/bin/python
+
 # Copy the entire project and install dependencies
 # Note: Consider using .dockerignore to exclude files not needed for the build
 COPY requirements.txt /app/
 COPY . /app
-RUN pip install -e .
+RUN pip3 install -e .
 RUN pip3 install -r requirements.txt  --ignore-installed
 RUN pip3 uninstall transformers -y
 RUN apt-get update && apt-get install -y --no-install-recommends git
